@@ -1,0 +1,52 @@
+# test_tesla_gpu.py
+import torch
+import os
+
+def test_tesla_p40():
+    """专门测试Tesla P40 GPU"""
+    print("🧪 Tesla P40 GPU测试")
+    
+    # 关键环境变量
+    os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
+    
+    print("✅ 环境变量设置完成")
+    print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES')}")
+    
+    # 检查CUDA
+    print(f"CUDA可用: {torch.cuda.is_available()}")
+    print(f"GPU数量: {torch.cuda.device_count()}")
+    
+    if torch.cuda.is_available():
+        for i in range(torch.cuda.device_count()):
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+            print(f"  内存: {torch.cuda.get_device_properties(i).total_memory / 1024**3:.1f} GB")
+        
+        # 测试计算
+        print("\n🚀 测试GPU计算...")
+        device = torch.device('cuda:0')
+        x = torch.randn(5000, 5000).to(device)
+        y = torch.randn(5000, 5000).to(device)
+        
+        import time
+        start = time.time()
+        z = x @ y  # 矩阵乘法
+        torch.cuda.synchronize()
+        end = time.time()
+        
+        print(f"✅ GPU计算测试通过!")
+        print(f"   计算时间: {end - start:.3f}秒")
+        
+        # 测试多GPU
+        if torch.cuda.device_count() > 1:
+            print("\n🔄 测试多GPU数据并行...")
+            model = torch.nn.Linear(1000, 1000)
+            model = torch.nn.DataParallel(model, device_ids=[0, 1])
+            model = model.to(device)
+            print("✅ 多GPU数据并行测试通过!")
+        
+    else:
+        print("❌ CUDA不可用")
+
+if __name__ == '__main__':
+    test_tesla_p40()
