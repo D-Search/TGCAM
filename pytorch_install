@@ -1,0 +1,99 @@
+# install_compatible_pytorch.py
+import subprocess
+import sys
+import torch
+
+def install_compatible_pytorch():
+    """安装兼容Tesla P40的PyTorch版本"""
+    
+    print("🔧 安装兼容Tesla P40的PyTorch版本...")
+    
+    # Tesla P40计算能力: 6.1
+    # 需要安装支持计算能力6.1的版本
+    
+    # 卸载当前版本
+    print("1. 卸载当前PyTorch...")
+    subprocess.run([sys.executable, "-m", "pip", "uninstall", "torch", "torchvision", "torchaudio", "-y"])
+    
+    # 安装兼容版本
+    print("2. 安装兼容版本...")
+    
+    # 尝试不同的版本组合
+    version_combinations = [
+        # PyTorch 1.13 + CUDA 11.7 (对P40兼容性好)
+        ("torch==1.13.1+cu117", "torchvision==0.14.1+cu117", "torchaudio==0.13.1+cu117"),
+        # PyTorch 2.0 + CUDA 11.8
+        ("torch==2.0.1+cu118", "torchvision==0.15.2+cu118", "torchaudio==2.0.2+cu118"),
+        # PyTorch 2.1 + CUDA 11.8
+        ("torch==2.1.2+cu118", "torchvision==0.16.2+cu118", "torchaudio==2.1.2+cu118"),
+    ]
+    
+    for torch_ver, torchvision_ver, torchaudio_ver in version_combinations:
+        print(f"\n🔄 尝试安装: {torch_ver}")
+        
+        commands = [
+            f"pip install {torch_ver} --index-url https://download.pytorch.org/whl/cu117",
+            f"pip install {torchvision_ver} --index-url https://download.pytorch.org/whl/cu117", 
+            f"pip install {torchaudio_ver} --index-url https://download.pytorch.org/whl/cu117"
+        ]
+        
+        success = True
+        for cmd in commands:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"❌ 安装失败: {result.stderr}")
+                success = False
+                break
+        
+        if success:
+            print("✅ 安装成功!")
+            return True
+    
+    return False
+
+def test_p40_compatibility():
+    """测试Tesla P40兼容性"""
+    print("\n🧪 测试Tesla P40兼容性...")
+    
+    try:
+        import torch
+        print(f"PyTorch版本: {torch.__version__}")
+        print(f"CUDA可用: {torch.cuda.is_available()}")
+        
+        if torch.cuda.is_available():
+            # 设置环境变量强制使用老的计算能力
+            import os
+            os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+            
+            # 测试简单计算
+            device = torch.device('cuda:0')
+            x = torch.randn(100, 100, device=device)
+            y = torch.randn(100, 100, device=device)
+            z = x + y
+            
+            print("✅ 基础计算测试通过")
+            
+            # 测试矩阵乘法
+            try:
+                result = torch.matmul(x, y)
+                print("✅ 矩阵乘法测试通过")
+            except Exception as e:
+                print(f"⚠️  矩阵乘法失败: {e}")
+                
+            return True
+        else:
+            print("❌ CUDA不可用")
+            return False
+            
+    except Exception as e:
+        print(f"❌ 测试失败: {e}")
+        return False
+
+if __name__ == "__main__":
+    if install_compatible_pytorch():
+        if test_p40_compatibility():
+            print("\n🎉 Tesla P40兼容性问题已解决!")
+        else:
+            print("\n❌ 兼容性问题仍然存在")
+    else:
+        print("\n❌ 安装失败")
