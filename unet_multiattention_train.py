@@ -14,7 +14,7 @@ def train():
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--train_path', type=str,
-                       default='TGCAM/data/BUSI1',
+                       default=r'C:\Users\Administrator\TGCAM\data\BUSI1',  # 使用绝对路径
                        help='Path to training dataset')
     parser.add_argument('--model_save_path', type=str,
                        default='unet_multiattention_model.pth',
@@ -75,20 +75,80 @@ def train():
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', 
                                                    factor=0.5, patience=5)
 
-    # 数据加载
-    image_root = '{}/image/'.format(args.train_path)
-    gt_root = '{}/mask/'.format(args.train_path)
-    train_loader = get_loader(image_root, gt_root, 
-                             batchsize=args.batch_size, 
-                             trainsize=384)
+    # 数据加载 - 使用绝对路径
+    image_root = os.path.join(args.train_path, 'image')
+    gt_root = os.path.join(args.train_path, 'mask')
+    
+    # 验证路径是否存在
+    print(f"\n=== 路径验证 ===")
+    print(f"训练数据根目录: {args.train_path}")
+    print(f"图像目录: {image_root}")
+    print(f"掩码目录: {gt_root}")
+    
+    # 检查路径是否存在
+    if not os.path.exists(args.train_path):
+        print(f"❌ 错误: 训练数据根目录不存在: {args.train_path}")
+        print("请检查 --train_path 参数是否正确")
+        return
+    
+    if not os.path.exists(image_root):
+        print(f"❌ 错误: 图像目录不存在: {image_root}")
+        print("请确保 'image' 文件夹存在于训练数据目录中")
+        return
+        
+    if not os.path.exists(gt_root):
+        print(f"❌ 错误: 掩码目录不存在: {gt_root}")
+        print("请确保 'mask' 文件夹存在于训练数据目录中")
+        return
+    
+    # 检查文件数量
+    image_files = [f for f in os.listdir(image_root) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    mask_files = [f for f in os.listdir(gt_root) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    
+    print(f"✅ 找到 {len(image_files)} 个图像文件")
+    print(f"✅ 找到 {len(mask_files)} 个掩码文件")
+    
+    if len(image_files) == 0:
+        print("❌ 错误: 图像目录中没有找到任何图像文件")
+        return
+        
+    if len(mask_files) == 0:
+        print("❌ 错误: 掩码目录中没有找到任何掩码文件")
+        return
+    
+    # 显示前几个文件作为示例
+    print(f"\n图像文件示例: {image_files[:5]}")
+    print(f"掩码文件示例: {mask_files[:5]}")
+    
+    # 确保路径格式正确（添加路径分隔符）
+    image_root = os.path.normpath(image_root) + os.sep
+    gt_root = os.path.normpath(gt_root) + os.sep
+    
+    print(f"\n=== 最终使用的路径 ===")
+    print(f"图像路径: {image_root}")
+    print(f"掩码路径: {gt_root}")
+
+    # 创建数据加载器
+    try:
+        train_loader = get_loader(image_root, gt_root, 
+                                 batchsize=args.batch_size, 
+                                 trainsize=384)
+        print(f"✅ 数据加载器创建成功!")
+        print(f"训练样本数量: {len(train_loader.dataset)}")
+        print(f"批次数量: {len(train_loader)}")
+    except Exception as e:
+        print(f"❌ 创建数据加载器时出错: {e}")
+        print("请检查 dataloader.py 中的路径处理逻辑")
+        return
 
     # 训练循环
     best_loss = float('inf')
     train_losses = []
     
-    print(f"\nStarting training for {args.epochs} epochs...")
-    print(f"Training samples: {len(train_loader.dataset)}")
-    print(f"Number of batches: {len(train_loader)}")
+    print(f"\n=== 开始训练 ===")
+    print(f"训练轮数: {args.epochs}")
+    print(f"批次大小: {args.batch_size}")
+    print(f"学习率: {args.lr}")
     
     for epoch in range(args.epochs):
         model.train()
@@ -113,7 +173,7 @@ def train():
             
             # 打印批次信息
             if (i + 1) % 10 == 0:
-                print(f'Epoch [{epoch+1}/{args.epochs}], Step [{i+1}/{len(train_loader)}], Loss: {loss.item():.4f}')
+                print(f'轮次 [{epoch+1}/{args.epochs}], 步骤 [{i+1}/{len(train_loader)}], 损失: {loss.item():.4f}')
         
         # 计算平均损失
         avg_loss = epoch_loss / num_batches
@@ -126,11 +186,11 @@ def train():
         
         # 手动打印学习率变化信息
         if new_lr < old_lr:
-            print(f"Learning rate reduced from {old_lr:.6f} to {new_lr:.6f}")
+            print(f"学习率从 {old_lr:.6f} 降低到 {new_lr:.6f}")
         
         # 打印epoch统计信息
         current_lr = optimizer.param_groups[0]['lr']
-        print(f'Epoch [{epoch+1}/{args.epochs}], Average Loss: {avg_loss:.4f}, LR: {current_lr:.6f}')
+        print(f'轮次 [{epoch+1}/{args.epochs}], 平均损失: {avg_loss:.4f}, 学习率: {current_lr:.6f}')
         
         # 保存最佳模型
         if avg_loss < best_loss:
@@ -142,17 +202,21 @@ def train():
                 'loss': best_loss,
                 'args': vars(args)
             }, args.model_save_path)
-            print(f"Best model saved with loss: {best_loss:.4f}")
+            print(f"✅ 最佳模型已保存，损失: {best_loss:.4f}")
 
     # 保存训练损失记录
-    with open("unet_multiattention_train_losses.txt", "w") as f:
-        f.write("Epoch,Average Loss\n")
-        for epoch, loss in enumerate(train_losses):
-            f.write(f"{epoch+1},{loss:.6f}\n")
+    try:
+        with open("unet_multiattention_train_losses.txt", "w") as f:
+            f.write("Epoch,Average Loss\n")
+            for epoch, loss in enumerate(train_losses):
+                f.write(f"{epoch+1},{loss:.6f}\n")
+        print(f"✅ 训练损失记录已保存到 'unet_multiattention_train_losses.txt'")
+    except Exception as e:
+        print(f"❌ 保存训练损失记录时出错: {e}")
     
-    print(f"\nTraining completed!")
-    print(f"Best model saved as '{args.model_save_path}' with loss: {best_loss:.4f}")
-    print(f"Training losses saved to 'unet_multiattention_train_losses.txt'")
+    print(f"\n=== 训练完成 ===")
+    print(f"最佳模型已保存为: '{args.model_save_path}'")
+    print(f"最佳损失: {best_loss:.4f}")
 
 if __name__ == '__main__':
     train()
