@@ -10,7 +10,7 @@ import os
 def train():
     # 参数设置
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=100) #训练100轮
+    parser.add_argument('--epochs', type=int, default=150) #训练150轮
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--train_path', type=str,
