@@ -11,7 +11,7 @@ import torch.backends.cudnn as cudnn
 def train():
     # 参数设置
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=150)
     parser.add_argument('--batch_size', type=int, default=8)  # 增加批次大小
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--train_path', type=str,
